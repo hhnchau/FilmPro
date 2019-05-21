@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">PhimPro</string>
+    <string name="txt_api_key">API KEY</string>
+    <string name="txt_playlist_id">Playlist ID</string>
+    <string name="btn_ok">OK</string>
+    <bool name="showAds">true</bool>
+</resources>
