@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/FilmPro.iml" filepath="$PROJECT_DIR$/.idea/modules/FilmPro.iml" />
+      <module fileurl="file://$PROJECT_DIR$/PhimPro.iml" filepath="$PROJECT_DIR$/PhimPro.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>

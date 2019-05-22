@@ -2,10 +2,12 @@ package info.kingpes.phimpro;
 
 import android.app.ProgressDialog;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
@@ -42,8 +44,16 @@ public class MainActivity extends AppCompatActivity {
 
     @BindView(R.id.edtApiKey)
     EditText edtApiKey;
+    @BindView(R.id.btnApiKey)
+    View btnApiKey;
+    @BindView(R.id.edtHost)
+    EditText edtHost;
+    @BindView(R.id.btnHost)
+    View btnHost;
     @BindView(R.id.edtPlaylistId)
     EditText edtPlaylistId;
+    @BindView(R.id.edtCategory)
+    EditText edtCategory;
     @BindView(R.id.tvStatus)
     TextView tvStatus;
     @BindView(R.id.lstStatus)
@@ -55,10 +65,12 @@ public class MainActivity extends AppCompatActivity {
     private static String nextPageToken = "";
     private static String playlistId;
     private static String apiKey;
-    private static String category = "ABC";
+    private static String category;
+    private static String host;
     private static List<Status> lst = new ArrayList<>();
     private static List<Video> lstVideo = new ArrayList<>();
-    private int itag18 = 18;
+    private static final int itag22 = 22;
+    private static final int itag18 = 18;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +78,39 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
         initList();
+
+        edtApiKey.setEnabled(false);
+        btnApiKey.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (edtApiKey.isEnabled())
+                    edtApiKey.setEnabled(false);
+                else
+                    edtApiKey.setEnabled(true);
+            }
+        });
+
+
+        edtHost.setEnabled(false);
+        btnHost.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (edtHost.isEnabled())
+                    edtHost.setEnabled(false);
+                else
+                    edtHost.setEnabled(true);
+            }
+        });
+
+
+        apiKey = Storage.getInstance(this).getApiKey();
+        edtApiKey.setText(apiKey);
+        host = Storage.getInstance(this).getHost();
+        edtHost.setText(host);
+        playlistId = Storage.getInstance(this).getPlaylistId();
+        edtPlaylistId.setText(playlistId);
+        category = Storage.getInstance(this).getCategory();
+        edtCategory.setText(category);
     }
 
     private void initList() {
@@ -83,8 +128,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onClick(View view) {
-        playlistId = "PLW3CkIq_CINs4QcnuvDTx2QMllzg9jevQ";//"PL17y3MB-KE4_hOwEOgJBGZmwpkBkA87IE";//edtPlaylistId.getText().toString();
-        apiKey = "AIzaSyBnSYRaGovmp9dAwNpy1oQCy_hM0ynXRBU";//edtApiKey.getText().toString();
+        playlistId = edtPlaylistId.getText().toString();
+        host = edtHost.getText().toString();
+        apiKey = edtApiKey.getText().toString();
+        category = edtCategory.getText().toString();
+        if (TextUtils.isEmpty(apiKey) || TextUtils.isEmpty(playlistId) || TextUtils.isEmpty(category) || TextUtils.isEmpty(host)) {
+            Toast.makeText(this, "Vui lòng nhập thông tin", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Storage.getInstance(this).setApiKey(apiKey);
+        Storage.getInstance(this).setHost(host);
+        Storage.getInstance(this).setPlaylistId(playlistId);
+        Storage.getInstance(this).setCategory(category);
         btnOk.setVisibility(View.GONE);
         getPlaylist();
     }
@@ -110,8 +165,8 @@ public class MainActivity extends AppCompatActivity {
         protected void onPreExecute() {
             super.onPreExecute();
             MainActivity activity = activityReference.get();
-            if (activity == null || activity.isFinishing()) return;
-            pd = ProgressDialog.show(activity, "", "Loading", true, false);
+            if (activity != null)
+                pd = ProgressDialog.show(activity, "", "Loading", true, false);
         }
 
         @Override
@@ -153,37 +208,38 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(String result) {
             super.onPostExecute(result);
             MainActivity activity = activityReference.get();
-            if (activity == null || activity.isFinishing()) return;
+            if (activity != null) {
 
-            pd.dismiss();
+                pd.dismiss();
 
-            try {
+                try {
 
-                JSONObject obj = new JSONObject(result);
-                if (!obj.isNull("nextPageToken"))
-                    nextPageToken = obj.getString("nextPageToken");
+                    JSONObject obj = new JSONObject(result);
+                    if (!obj.isNull("nextPageToken"))
+                        nextPageToken = obj.getString("nextPageToken");
 
-                JSONArray items = new JSONArray(obj.getString("items"));
-                for (int i = 0; i < items.length(); i++) {
-                    JSONObject item = items.getJSONObject(i);
-                    JSONObject snippet = new JSONObject(item.getString("snippet"));
-                    String title = snippet.getString("title");
-                    String description = snippet.getString("description");
-                    JSONObject resourceId = new JSONObject(snippet.getString("resourceId"));
-                    String videoId = resourceId.getString("videoId");
+                    JSONArray items = new JSONArray(obj.getString("items"));
+                    for (int i = 0; i < items.length(); i++) {
+                        JSONObject item = items.getJSONObject(i);
+                        JSONObject snippet = new JSONObject(item.getString("snippet"));
+                        String title = snippet.getString("title");
+                        String description = snippet.getString("description");
+                        JSONObject resourceId = new JSONObject(snippet.getString("resourceId"));
+                        String videoId = resourceId.getString("videoId");
 
-                    lstVideo.add(new Video(videoId, title, description));
+                        lstVideo.add(new Video(videoId, title, description));
+                    }
+
+                    if (!nextPageToken.equals("")) {
+                        activity.getPlaylist();
+                        nextPageToken = "";
+                    } else {
+                        activity.youtubeExtract();
+                    }
+
+                } catch (Throwable t) {
+                    Log.e("My App", "Could not parse malformed JSON: \"" + result + "\"");
                 }
-
-                if (!nextPageToken.equals("")) {
-                    activity.getPlaylist();
-                    nextPageToken = "";
-                } else {
-                    activity.youtubeExtract();
-                }
-
-            } catch (Throwable t) {
-                Log.e("My App", "Could not parse malformed JSON: \"" + result + "\"");
             }
         }
     }
@@ -195,28 +251,11 @@ public class MainActivity extends AppCompatActivity {
             new YouTubeExtractor(this, new YouTubeExtractor.Callback() {
                 @Override
                 public void onExtractionComplete(SparseArray<YtFile> ytFiles, VideoMeta videoMeta) {
-                    if (ytFiles != null && ytFiles.get(itag18).getUrl() != null) {
-
-                        try {
-                            JSONObject obj = new JSONObject();
-                            obj.put("sn", video.getVideoId());
-                            obj.put("name", video.getTitle());
-                            obj.put("link", ytFiles.get(itag18).getUrl());
-                            obj.put("cate", category);
-                            obj.put("des", video.getDescription());
-                            new PostTask(new PostTask.Callback() {
-                                @Override
-                                public void onFinish(int i) {
-                                    if (i == 1)
-                                        lst.add(new info.kingpes.phimpro.Status(video.getVideoId(), "Ok"));
-                                    else
-                                        lst.add(new info.kingpes.phimpro.Status(video.getVideoId(), "Fail"));
-
-                                    adapter.notifyDataSetChanged();
-                                }
-                            }).execute(obj.toString());
-                        } catch (JSONException e) {
-                            e.printStackTrace();
+                    if (ytFiles != null) {
+                        if (ytFiles.get(itag22).getUrl() != null) {
+                            sendToHost(video, ytFiles.get(itag22).getUrl());
+                        } else if (ytFiles.get(itag18).getUrl() != null) {
+                            sendToHost(video, ytFiles.get(itag18).getUrl());
                         }
                     }
                 }
@@ -224,10 +263,35 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void sendToHost(final Video video, String linkExtract) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("sn", video.getVideoId());
+            obj.put("name", video.getTitle());
+            obj.put("link", linkExtract);
+            obj.put("cate", category);
+            obj.put("des", video.getDescription());
+            new PostTask(new PostTask.Callback() {
+                @Override
+                public void onFinish(int i) {
+                    if (i == 1)
+                        lst.add(new info.kingpes.phimpro.Status(video.getVideoId(), "Ok"));
+                    else
+                        lst.add(new info.kingpes.phimpro.Status(video.getVideoId(), "Fail"));
+
+                    adapter.notifyDataSetChanged();
+                }
+            }).execute(obj.toString());
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
     private static class PostTask extends AsyncTask<String, Integer, String> {
         public interface Callback {
             void onFinish(int i);
         }
+
         private Callback callback;
 
         PostTask(Callback callback) {
@@ -248,7 +312,7 @@ public class MainActivity extends AppCompatActivity {
                 OutputStream outputStream = null;
                 HttpURLConnection conn = null;
                 try {
-                    URL url = new URL("http://192.168.1.36:4000/admin/new-product.html");
+                    URL url = new URL(host + "/admin/new-product.html");
                     conn = (HttpURLConnection) url.openConnection();
                     conn.setReadTimeout(10000);
                     conn.setConnectTimeout(15000);
